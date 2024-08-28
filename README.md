@@ -170,8 +170,8 @@ Luego, procedemos a modificar los archivos html que se van a mostrar una vez ent
 ```
 /var/www/html
 ```
-En esta ruta creamos el directorio ```/archivos_privados``` el cual sera nuestro directorio con index html protegido,
-el cual fue configurado en el archivo **_000-default.conf_** con el siguiente codigo:
+En esta ruta creamos el directorio ```/archivos_privados``` el cual contendrá el *index.html* privado,
+para configurar esta función, accedemos al archivo **_000-default.conf_** y agregamos el siguiente codigo:
 
 ```
 <Directory "/var/www/html/archivos_privados">
@@ -183,40 +183,36 @@ Require valid-user
 </Directory>
 
 ```
-
-Ya configurado en las paginas se puede proceder a descargar el PAM con la siguiente linea de comando:
+Una vez configuradas las páginas que queremos proteger, podemos descargar el PAM
 
 ```
 apt-get install libapache2-mod-authnz-pam
 ```
-
-Una vez descargado, procedemos a activar el modulo de PAM:
-
+Cuando haya terminado de instalarse, debemos activar el módulo con la siguiente línea
 ```
 a2enmod authnz_pam
 ```
-Al terminar de activar el modulo PAM continuamos con crear el archivo de la lista de excluidos en la carpeta pam.d
+Mostrará un proceso y al terminar de activar el módulo, podemos crear el archivo de la lista de excluidos ubicados en la carpeta pam.d
 
 ```
 sudo vim /etc/pam.d/usuarios_denegados
 ```
+El nombre del archivo puede variar según el gusto, pero hay que espcificarle el nombre más adelante a la configuración para que haga su
+función. En cuanto al contenido del archivo, aquí deben colocar los nombres de los usuarios que no podrán tener acceso a las páginas
+dentro de la carpeta *archivos_privados*
 
-Y en ese archvio ponemos los nombres que se quieren excluir 
-
+Un ejemplo podría ser:
 ```
-Kenny
-andres
-daniel
+denegado
+alfonso
  ```
- 
-Despues de la lista creamos un archivo  de configuración pam  llamado "apache" en la misma carpeta PAM
+Luego, debemos crear un archivo llamado "*apache*", el cual tendrá la configuración de los usuarios denegados
 
 ```
 sudo vim /etc/pam.d/apache
 ```
 
-Y en el archivo ponemos la siguiente configuracion
-
+Dentro de ese archivo, colocamos lo siguiente:
 ```
 (ingresa la lista)
 auth required pam_unix.so
@@ -224,21 +220,41 @@ account required pam_unix.so
 
 ```
 Autenticamos el acceso al servicio apache mediante las cuentas de ubuntu
-
 ```
 groupadd shadow
 usermod -a -G shadow www-data
 chown root:shadow /etc/shadow
 chmod g+r /etc/shadow'''
 ```
-Usamos el super usuario para agregar usuarios con el commando add user 
 
+Para agregar usuarios, es necesario usar el super usuario para ejecutar el comando *adduser* sin problemas
 ```sudo -i``` Y luego ```adduser nombre_usuario```
 
-
-reiniciamos el apache para aplicar cambios
-
-
+Luego de haber hecho todo esto, se debe reiniciar el apache
 ```
 sudo systemctl restart apache2
 ```
+
+Y listo, ahora solo queda entrar al navegador, colocar la ip del maestro y ver la página. Para comprobar que el PAM
+fue exitoso, también se puede acceder a la ubicación de la carpeta, por ejemplo: *http://192.168.50.3/archivos_privados*,
+ahí debería aparecer una ventana pidiendo las credenciales (usuario y contraseña) y solamente dejará ingresar a los
+usuarios registrados que no estén en el archivo *usuarios_denegados*
+
+## Despliegue con ngrok
+Para desplegar la página que previamente hicimos a una url temporal, podemeos utilizar el programa Ngrok que se puede
+encontrar libremente en internet, para obtenerlo se pueden registrar y luego podrán elegir si instalarlo con zip o con
+*choco*. 
+
+Se descomprime el zip descargado dentro de la carpeta que contiene al vagrant y las máquinas, luego se ejecuta y dentro 
+de su consola de comandos se escribe la configuración
+```
+ngrok config add-authtoken <token de inicio de sesión>
+```
+
+esa configuración solo se hará una vez por dispositivo. Luego, para generar la URL deberán colocar el siguiente comando
+```
+ngrok http 192.168.50.3:80
+```
+
+El programa mostrará cómo genera el URL y finalmente te dará el enlace temporal. Si deseas un enlace permanente, puedes
+mejorar la cuenta pagando.
