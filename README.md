@@ -271,7 +271,7 @@ sudo systemctl restart systemd-resolved
 ```
 
 
-### 2. Modificar el archivo de configuración de systemd
+### 3. Modificar el archivo de configuración de systemd
 Para ello entramos a la siguiente ruta:
 ```
 sudo vim /etc/systemd/resolved.conf
@@ -320,7 +320,7 @@ Y con reiniciamos:
 sudo systemctl restart NetworkManager
 ```
 
-### 3. Funcionamiento
+### 4. Funcionamiento
 Finalmente, para usarlo, será necesario liberar primero la caché y luego
 realizar la búsqueda con el comando de systemd así:
 
