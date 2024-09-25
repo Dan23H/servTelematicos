@@ -1,260 +1,245 @@
-# Desarrollo Parcial 1
+# Desarrollo Parcial 2
 
 Realizado por: 
 - Daniel Hernández Valderrama - 2210235
 
-## Configuración de Servidor DNS Maestro/Esclavo y Autenticación PAM en Apache
-### Primera Parte: Configuracion de DNS Maestro y Esclavo
+## Primera parte del primer punto: Configuración de servicio FTP Seguro
 
-En la máquina seleccionada como Maestro, se instala Bind9 y sus utilidades Bind9utils
+En la máquina seleccionada como maquina2, se instala vsftpd
 
-### 1. Instalar Bind9
+### 1. Instalar vsftpd
   ```
-  sudo apt-get install bind9 bind9utils
+  sudo apt-get install vsftpd
  ```
 
-Una vez instalados, se creará una carpeta en etc llamada bind, ahí debemos entrar
+### 2. Configurar archivo de configuración de FTP
+Una vez instalados, se creará un archivo en etc llamado vsftpd.conf, ahí debemos entrar
    ```
- /etc/bind 
+ sudo vim /etc/vsftpd.conf 
    ```
-
-En este directorio se encontrarán algunos archivos por defecto que bien podríamos cambiar,
-pero para este caso, debemos crear un archivo con el nombre db.<nombre_de_la_empresa>.com
-y pegarle la información de db.0 de esta forma:
-
-```
-sudo cp db.0 db.AlterMega.com
-```
-
-### 2. Se debe modificar el archvio de forma que quede así:
-```
-;
-; BIND data file for local loopback interface
-;
-$TTL    604800
-@       IN      SOA     AlterMega.com. root.AlterMega.com. (
-                              4         ; Serial
-                         604800         ; Refresh
-                          86400         ; Retry
-                        2419200         ; Expire
-                         604800 )       ; Negative Cache TTL
-;
-@       IN      NS      ns.AlterMega.com.
-ns      IN      A       192.168.50.3
-maestro IN      CNAME   ns
-master  IN      CNAME   ns
-esclavo IN      A       192.168.50.2
-slave   IN      CNAME   esclavo
-```
-
-Después de creado el archivo *db.*, procedemos a agregarlo a la configuración
-del bind, ubicada en *named.conf.local* 
-
-### 3. El archivo se modifica de la siguiente forma:
-```
-//
-// Do any local configuration here
-//
-
-// Consider adding the 1918 zones here, if they are not used in your
-// organization
-//include "/etc/bind/zones.rfc1918";
-/*Zona hacia Parcial1*/
-zone "AlterMega.com" {
-type master;
-file "/etc/bind/db.AlterMega.com";
-allow-transfer { 192.168.50.2; };
-};
-/*Zona inversa*/
-zone "50.168.192.in-addr.arpa" {
-type master;
-file "/etc/bind/db.192";
-};
-```
-
-Con esto, se estaría configurando el bind de la máquina para que sea identificado como
-DNS Maestro. En la otra máquina, ha que configurar el mismo archivo, luego de haber instalado
-el bind previamente y configurarlo como esclavo
-
-## 4. Instalar Bind9 en el esclavo
+En este archivo se encontrarán algunas configuraciones por defecto que debemos modificar
+para habilidar el modo seguro de FTP, en este caso, es necesario buscar y descomentar un
+parámetro llamado "write_enable=YES" y agregar algunas líneas de la siguiente forma:
 
 ```
-sudo apt-get install bind9 bind9utils
+listen=YES
+listen_ipv6=NO
+anonymous_enable=NO
+local_enable=YES
+
+write_enable=YES
+
+dirmessage_enable=YES
+use_localtime=YES
+xferlog_enable=YES
+connect_from_port_20=YES
+
+ftpd_banner=Welcome to blah FTP service.
+
+# Usar el certificado que se haya creado anteriormente o usar uno por defecto.
+rsa_cert_file=/etc/ssl/certs/vsftpd.pem
+rsa_private_key_file=/etc/ssl/private/vsftpd.key
+ssl_enable=YES
+
+# Forzar el uso del SSL
+require_ssl_reuse=NO
+force_local_logins_ssl=YES
+force_local_data_ssl=YES
+
+# Configurar rango de puertos pasivos
+ssl_tlsv1=YES
+ssl_sslv2=NO
+ssl_sslv3=NO
+
+# Configurar la IP pública del firewall
+pasv_enable=YES
+pasv_min_port=40000
+pasv_max_port=50000
+pasv_address=192.168.50.4
+pasv_promiscuous=YES
 ```
 
-Una vez se termine de instalar Bind9 y sus dependencias, procedemos a entrar al mismo directorio
-que el maestro:
-```
-/etc/bind
-```
-Luego, entramos al archivo llamado *named.conf.local* 
+En esta vista previa, he eliminado todos los comentarios para que sea más cómodo identificar
+los cambios; se deberán agregar las líneas para forzar el uso del SSL, configurar los puertos
+pasivos y configurar la ip pública del firewall.
 
-### 5. Se configura para que la máquina 2 sea esclavo:
-
-```
-//
-// Do any local configuration here
-//
-
-// Consider adding the 1918 zones here, if they are not used in your
-// organization
-//include "/etc/bind/zones.rfc1918";
-
-zone "AlterMega.com" {
-type slave;
-masters {192.168.50.3; };
-file "/var/cache/bind/db.AlterMega.com";
-};
-
-```
-Con esto estaríamos configurando correctamente a la segunda máquina
-como esclavo. Ahora, si una tercera máquina intenta acceder al DNS de
-la máquina maestro, deberá consultar con el DNS de la máquina esclavo
-primero, pues ahora ese DNS solo recibe consultas de la máquina esclavo.
+## Segunda parte del primer punto: Configuración del Firewall
+Una vez configurado el archivo de vsftp en la máquina2, debemos configurar el firewall en la máquina1
+para que permita redirigir todo el tráfico de FTP hacia la máquina2, que contiene las configuraciones
+del mismo servicio.
 
 
-## Configuracion de PAM y Apache
-### Segunda Parte: Configuración de Autenticación PAM en Servidor Apache
-
-Una vez terminada la configuracion de los servidores DNS en el maestro y esclavo,
-se procede con la instalación y posterior configuración del apache y autenticación
-PAM
-
-### 1. Instalar apache2 en la máquina maestro
-
+### 1. Configurar permisos de UFW
+En la máquina1 se debe utilizar el siguiente comando:
 ```
-sudo apt-get install apache2
+sudo ufw status
 ```
 
-Ya intalado apache2 se nos crea un directorio llamado _apache2_, ubicado en:
-```
-/etc/apache2
-```
-Y se configura el archivo **_apache2.conf_** agregando el Directorio:
+Nos mostrará si el firewall está activo, posteriormente debemos encenderlo y habilitar los puertos necesarios:
 
 ```
-<Directory "/var/www/html/archivos_privados">
-    AuthType Basic
-    AuthName "Directorio Privado"
-    Require valid-user
-</Directory>
+sudo ufw enable
 ```
 
-Ya configurado entramos en el directorio _sites-avalaible_ y configuramos el archivo **_000-default.conf_**
-
 ```
-sudo vim /etc/apache2/sites-available/000-default.conf
-```
-
-Aquí agregamos la siguiente configuracion para agregar la autenticación PAM:
-
-```
-<VirtualHost *:80>
-        ServerAdmin webmaster@localhost
-        DocumentRoot /var/www/html
-        ErrorLog ${APACHE_LOG_DIR}/error.log
-        CustomLog ${APACHE_LOG_DIR}/access.log combined
-<Directory "/var/www/html/archivos_privados">
-AuthType Basic
-AuthName "private area"
-AuthBasicProvider PAM
-AuthPAMService apache
-Require valid-user
-</Directory>
-</VirtualHost>
-
+sudo ufw allow 20/tcp
+sudo ufw allow 21/tcp
+sudo ufw allow 22/tcp
+sudo ufw allow 40000:50000/tcp
 ```
 
-Luego, procedemos a modificar los archivos html que se van a mostrar una vez entren a :
-
+Con esto estaríamos permitiendo el uso del FTP y los puertos pasivos del FTP o, en otras palabras, el FTP seguro.
+Ahora solo queda reiniciar el servicio para que se apliquen los cambios:
 ```
-/var/www/html
-```
-En esta ruta creamos el directorio ```/archivos_privados``` el cual contendrá el *index.html* privado,
-para configurar esta función, accedemos al archivo **_000-default.conf_** y agregamos el siguiente codigo:
-
-```
-<Directory "/var/www/html/archivos_privados">
-AuthType Basic
-AuthName "private area"
-AuthBasicProvider PAM
-AuthPAMService apache
-Require valid-user
-</Directory>
-
-```
-Una vez configuradas las páginas que queremos proteger, podemos descargar el PAM
-
-```
-apt-get install libapache2-mod-authnz-pam
-```
-Cuando haya terminado de instalarse, debemos activar el módulo con la siguiente línea
-```
-a2enmod authnz_pam
-```
-Mostrará un proceso y al terminar de activar el módulo, podemos crear el archivo de la lista de excluidos ubicados en la carpeta pam.d
-
-```
-sudo vim /etc/pam.d/usuarios_denegados
-```
-El nombre del archivo puede variar según el gusto, pero hay que espcificarle el nombre más adelante a la configuración para que haga su
-función. En cuanto al contenido del archivo, aquí deben colocar los nombres de los usuarios que no podrán tener acceso a las páginas
-dentro de la carpeta *archivos_privados*
-
-Un ejemplo podría ser:
-```
-denegado
-alfonso
- ```
-Luego, debemos crear un archivo llamado "*apache*", el cual tendrá la configuración de los usuarios denegados
-
-```
-sudo vim /etc/pam.d/apache
+sudo systemctl restart vsftpd
 ```
 
-Dentro de ese archivo, colocamos lo siguiente:
-```
-(ingresa la lista)
-auth required pam_unix.so
-account required pam_unix.so
+### 2. Configurar la redirección
+Ahora, será necesario modificar los parámetros de redirección en el firewall, para eso debemos entrar en la siguiente
+ruta:
 
 ```
-Autenticamos el acceso al servicio apache mediante las cuentas de ubuntu
-```
-groupadd shadow
-usermod -a -G shadow www-data
-chown root:shadow /etc/shadow
-chmod g+r /etc/shadow'''
+sudo vim /etc/default/ufw
 ```
 
-Para agregar usuarios, es necesario usar el super usuario para ejecutar el comando *adduser* sin problemas
-```sudo -i``` Y luego ```adduser nombre_usuario```
-
-Luego de haber hecho todo esto, se debe reiniciar el apache
+Luego, debemos buscar el parámetro DEFAULT_FORWARD_POLICY="DROP" y modificar el permiso así:
 ```
-sudo systemctl restart apache2
+DEFAULT_FORWARD_POLICY="ACCEPT"
 ```
 
-Y listo, ahora solo queda entrar al navegador, colocar la ip del maestro y ver la página. Para comprobar que el PAM
-fue exitoso, también se puede acceder a la ubicación de la carpeta, por ejemplo: *http://192.168.50.3/archivos_privados*,
-ahí debería aparecer una ventana pidiendo las credenciales (usuario y contraseña) y solamente dejará ingresar a los
-usuarios registrados que no estén en el archivo *usuarios_denegados*
-
-## Despliegue con ngrok
-Para desplegar la página que previamente hicimos a una url temporal, podemeos utilizar el programa Ngrok que se puede
-encontrar libremente en internet, para obtenerlo se pueden registrar y luego podrán elegir si instalarlo con zip o con
-*choco*. 
-
-Se descomprime el zip descargado dentro de la carpeta que contiene al vagrant y las máquinas, luego se ejecuta y dentro 
-de su consola de comandos se escribe la configuración
+Guardamos y entramos a la siguiente ruta:
 ```
-ngrok config add-authtoken <token de inicio de sesión>
+sudo vim /etc/ufw/sysctl.conf
 ```
 
-esa configuración solo se hará una vez por dispositivo. Luego, para generar la URL deberán colocar el siguiente comando
+Aquí buscamos un parámetro llamado "net/ipv4/ip_forward=1" y lo descomentamos, debería quedar así:
 ```
-ngrok http 192.168.50.3:80
+#
+# Configuration file for setting network variables. Please note these settings
+# override /etc/sysctl.conf and /etc/sysctl.d. If you prefer to use
+# /etc/sysctl.conf, please adjust IPT_SYSCTL in /etc/default/ufw. See
+# Documentation/networking/ip-sysctl.txt in the kernel source code for more
+# information.
+#
+
+# Uncomment this to allow this host to route packets between interfaces
+net/ipv4/ip_forward=1
+#net/ipv6/conf/default/forwarding=1
+#net/ipv6/conf/all/forwarding=1
+
+# Disable ICMP redirects. ICMP redirects are rarely used but can be used in
+# MITM (man-in-the-middle) attacks. Disabling ICMP may disrupt legitimate
+# traffic to those sites.
+net/ipv4/conf/all/accept_redirects=0
+net/ipv4/conf/default/accept_redirects=0
+net/ipv6/conf/all/accept_redirects=0
+net/ipv6/conf/default/accept_redirects=0
+
+# ...
 ```
 
-El programa mostrará cómo genera el URL y finalmente te dará el enlace temporal. Si deseas un enlace permanente, puedes
-mejorar la cuenta pagando.
+Con esto estaríamos habilitando el redireccionamiento en IPv4.
+Ahora es necesario modificar las reglas de redirección, para eso entramos a la
+siguiente ruta:
+```
+sudo vim /etc/ufw/before.rules
+```
+
+Y agregamos en la parte superior algunas líneas de la siguiente forma:
+```
+#
+# rules.before
+#
+# Rules that should be run before the ufw command line added rules. Custom
+# rules should be added to one of these chains:
+#   ufw-before-input
+#   ufw-before-output
+#   ufw-before-forward
+#
+
+*nat
+:POSTROUTING ACCEPT [0:0]
+
+# Redirigir tráfico FTP seguro (puerto 21)
+-A PREROUTING -p tcp --dport 21 -j DNAT --to-destination 192.168.50.5:21
+
+# No enmascarar tráfico local
+-A POSTROUTING -s 192.168.50.0/24 -o eth1 -j MASQUERADE
+-A POSTROUTING -s 192.168.1.0/24 -o eth1 -j MASQUERADE
+COMMIT
+
+# Don't delete these required lines, otherwise there will be errors (...)
+```
+
+Con todo esto, ya debería quedar la redirección desde los puertos 21 de cualquier máquina hasta
+el puerto 21 de la máquina que tiene el servicio de FTP Seguro. Ahora solo queda reiniciar el 
+servicio de la siguiente forma:
+```
+sudo ufw disable && sudo ufw enable
+```
+
+## Segundo punto: Firewall para máquinas esclavo-maestro
+En la rama parcial1 está la configuración de las máquinas esclavo-maestro, por lo que voy a omitir
+esa explicación y pasaré directamente con la configuración del firewall, hay que tener en cuenta
+que debe verificar que los archivos resolv.conf dentro de la carpeta /etc/ deben apuntar hacia la
+otra máquina, un ejemplo: máquina1 >> máquina2 y máquina2 >> máquina1.
+
+### 1. Configuración del firewall
+En la máquina1, la que tiene el firewall del punto anterior, agregamos los siguientes permisos:
+```
+sudo ufw allow 53/tcp
+sudo ufw allow 53/udp
+```
+
+De esta forma estaríamos permitiendo el tráfico de DNS. Ahora solo queda configurarlo, para eso
+debemos añadir algunas reglas.
+
+### 2. Configuración de redireccionamiento
+```
+sudo vim /etc/ufw/before.rules
+```
+
+Aquí agregamos dos líneas que redirigan del puerto 53 tcp y udp al puerto 53 de la máquina esclavo:
+```
+#
+# rules.before
+#
+# Rules that should be run before the ufw command line added rules. Custom
+# rules should be added to one of these chains:
+#   ufw-before-input
+#   ufw-before-output
+#   ufw-before-forward
+#
+
+*nat
+:POSTROUTING ACCEPT [0:0]
+
+# Redirigir tráfico FTP seguro (puerto 21)
+-A PREROUTING -p tcp --dport 21 -j DNAT --to-destination 192.168.50.5:21
+
+# Redirigir tráfico al puerto 53 de la máquina esclavo
+-A PREROUTING -p tcp --dport 53 -j DNAT --to-destination 192.168.50.2:53
+-A PREROUTING -p udp --dport 53 -j DNAT --to-destination 192.168.50.2:53
+
+# No enmascarar tráfico local
+-A POSTROUTING -s 192.168.50.0/24 -o eth1 -j MASQUERADE
+-A POSTROUTING -s 192.168.1.0/24 -o eth1 -j MASQUERADE
+COMMIT
+```
+
+Para comprobarlo, deberás utilizar el comando:
+```
+nslookup maestro.AlterMega.com 192.168.50.4
+```
+
+Y debería poder resolver el URL, apuntando a la máquina maestro así:
+```
+Server:         192.168.50.4
+Address:        192.168.50.4#53
+
+maestro.AlterMega.com   canonical name = ns.AlterMega.com.
+Name:   ns.AlterMega.com
+Address: 192.168.50.3
+```
+
+## Tercer Punto: DNS sobre TLS
