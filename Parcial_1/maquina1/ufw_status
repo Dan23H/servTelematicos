@@ -1,0 +1,19 @@
+Status: active
+
+To                         Action      From
+--                         ------      ----
+21/tcp                     ALLOW       Anywhere
+20/tcp                     ALLOW       Anywhere
+40000:50000/tcp            ALLOW       Anywhere
+22/tcp                     ALLOW       Anywhere
+53/tcp                     ALLOW       Anywhere
+53/udp                     ALLOW       Anywhere
+21/tcp (v6)                ALLOW       Anywhere (v6)
+20/tcp (v6)                ALLOW       Anywhere (v6)
+40000:50000/tcp (v6)       ALLOW       Anywhere (v6)
+22/tcp (v6)                ALLOW       Anywhere (v6)
+53/tcp (v6)                ALLOW       Anywhere (v6)
+53/udp (v6)                ALLOW       Anywhere (v6)
+
+Esto no es un archivo, es lo que debe aparecer cuando llamas a la función:
+sudo ufw status
