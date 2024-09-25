@@ -62,6 +62,10 @@ pasv_promiscuous=YES
 En esta vista previa, he eliminado todos los comentarios para que sea más cómodo identificar
 los cambios; se deberán agregar las líneas para forzar el uso del SSL, configurar los puertos
 pasivos y configurar la ip pública del firewall.
+Ahora solo queda reiniciar el servicio para que se apliquen los cambios:
+```
+sudo systemctl restart vsftpd
+```
 
 ## Segunda parte del primer punto: Configuración del Firewall
 Una vez configurado el archivo de vsftp en la máquina2, debemos configurar el firewall en la máquina1
@@ -89,10 +93,6 @@ sudo ufw allow 40000:50000/tcp
 ```
 
 Con esto estaríamos permitiendo el uso del FTP y los puertos pasivos del FTP o, en otras palabras, el FTP seguro.
-Ahora solo queda reiniciar el servicio para que se apliquen los cambios:
-```
-sudo systemctl restart vsftpd
-```
 
 ### 2. Configurar la redirección
 Ahora, será necesario modificar los parámetros de redirección en el firewall, para eso debemos entrar en la siguiente
